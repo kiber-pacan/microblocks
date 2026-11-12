@@ -211,7 +211,7 @@ public final class AutoTest {
         boolean drawn = mc.player != null && mc.level.getChunkSource().hasChunk(mc.player.blockPosition().getX() >> 4, mc.player.blockPosition().getZ() >> 4)
                 && mc.levelRenderer.#if MC_VER >= V1_20_4 hasRenderedAllSections() #else hasRenderedAllChunks() #endif;
         settledTicks = drawn ? settledTicks + 1 : 0;
-        return settledTicks >= 3 && server.getTickCount() - settledServer >= 3;
+        return settledTicks >= 8 && server.getTickCount() - settledServer >= 8;      // what the server changed has come and is drawn (three ticks were too few with three games at once)
     }
 
     private static int duration(String value) {
@@ -312,7 +312,7 @@ public final class AutoTest {
                     // a confirmation on the way into the world (experimental settings, missing data pack, backup): say yes
                     if (inWorld) next();
                     else if (stepTicks % 40 == 0 && screen != null && !(screen instanceof TitleScreen)) confirm(mc);
-                } else if (stepTicks >= duration(value) || inWorld && stepTicks >= Math.max(6, duration(value) / 6) && settled(mc, server)) {
+                } else if (stepTicks >= duration(value) || inWorld && stepTicks >= Math.max(12, duration(value) / 5) && settled(mc, server)) {
                     next();      // the time is the most a wait takes: it is over as soon as the world is drawn and nothing is being loaded
                 }
             }
