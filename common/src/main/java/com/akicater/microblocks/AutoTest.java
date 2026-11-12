@@ -112,7 +112,32 @@ public final class AutoTest {
         }
     }
 
+    // several tests in one start of the game: a "- test: name" step begins each of them, at a clean place of the world. A test that fails
+    // is written down and the next one goes on; the run fails at the end when one of them did.
+    private static String currentTest;
+    private static int testNumber;
+    private static final List<String> failedTests = new ArrayList<>();
+
     private static void finish(Minecraft mc, boolean ok, String why) {
+        if (currentTest != null) {
+            System.out.println("AUTOTEST TEST " + currentTest + (ok ? " PASSED" : " FAILED " + why));
+            if (!ok) {
+                failedTests.add(currentTest);
+                for (int i = index + 1; i < STEPS.size(); i++) {
+                    if (!STEPS.get(i).key().equals("test")) continue;
+                    index = i;       // the next test: this one is over
+                    stepTicks = 0;
+                    started = false;
+                    currentTest = null;
+                    if (mc.level != null) setScreen(mc, null);
+                    return;
+                }
+            }
+            if (!failedTests.isEmpty()) {
+                ok = false;
+                why = "tests: " + String.join(", ", failedTests);
+            }
+        }
         System.out.println(ok ? "AUTOTEST PASSED" : "AUTOTEST FAILED " + why);
         mc.stop();
     }
@@ -248,10 +273,26 @@ public final class AutoTest {
         }
 
         switch (step.key()) {
+            case "test" -> {
+                if (stepTicks == 1) {
+                    if (currentTest != null) System.out.println("AUTOTEST TEST " + currentTest + " PASSED");
+                    currentTest = step.value();
+                    testNumber++;
+                    System.out.println("AUTOTEST TEST " + currentTest + " BEGIN");
+                    if (!inWorld) { next(); return; }
+                    // a place of its own, far from what the tests before built, with nothing in the hands and no screen open
+                    if (screen != null) setScreen(mc, null);
+                    run(server, "gamemode creative @p");
+                    run(server, "clear @p");
+                    run(server, "tp @p " + testNumber * 400 + ".0 -60 0.0 0 0");
+                } else if (stepTicks > 60) {
+                    next();      // three seconds for the chunks of the new place
+                }
+            }
             case "wait" -> {
                 String value = step.value();
                 if (value.equals("title")) {
-                    if (screen instanceof TitleScreen && stepTicks > 40) next();
+                    if (inWorld || screen instanceof TitleScreen && stepTicks > 40) next();
                 } else if (value.equals("world")) {
                     // a confirmation on the way into the world (experimental settings, missing data pack, backup): say yes
                     if (inWorld) next();
@@ -261,6 +302,7 @@ public final class AutoTest {
                 }
             }
             case "open-world" -> {
+                if (inWorld) { next(); return; }      // a later test of the same start: the world is open
                 System.out.println("AUTOTEST opening " + step.value());
                 openWorld(mc, step.value());
                 next();
@@ -271,12 +313,14 @@ public final class AutoTest {
                     return;
                 }
                 System.out.println("AUTOTEST command " + step.value());
-                run(server, step.value());
+                // in a suite "~" is the place of the player (the clean place of this test), not the origin of the world
+                run(server, currentTest != null && testNumber > 1 ? "execute at @p run " + step.value() : step.value());
                 next();
             }
             case "screenshot" -> {
-                screenshot(mc, step.value());
-                System.out.println("AUTOTEST screenshot " + step.value());
+                String shot = currentTest == null ? step.value() : currentTest + "__" + step.value();
+                screenshot(mc, shot);
+                System.out.println("AUTOTEST screenshot " + shot);
                 next();
             }
             case "peaceful-world" -> {

@@ -49,6 +49,8 @@ _slot_lock = threading.Lock()
 
 
 TEST_META: dict = {}
+SUITE: list = []                    # the names of the tests when several run in one start of the game (tests/a.yml,tests/b.yml)
+SUITE_RESULTS: dict = {}            # label -> {test: (ok, why)}, also in results-tests.json
 SOURCES_HASH = ""                  # set by main(): the state of the sources the direct runs are valid for
 
 
@@ -229,6 +231,8 @@ def _play(index: int, loader: str, info: dict, run: Path, log: Path, display, la
         # finished picture is copied to the virtual screen
         cmd = ["vglrun", "-d", "egl"] + cmd
 
+    for old in (run / "screenshots").glob("*.png") if (run / "screenshots").exists() else []:
+        old.unlink()             # the pictures of the run before: only those of this run are looked at
     with log.open("a") as out:
         proc = subprocess.Popen(cmd, cwd=run, stdout=out, stderr=subprocess.STDOUT, start_new_session=True, env=env)
         with _slot_lock:
@@ -262,11 +266,30 @@ def _play(index: int, loader: str, info: dict, run: Path, log: Path, display, la
     if STOP.is_set():
         return False, "stopped"
 
-    for shot in (run / "screenshots").glob("*.png") if (run / "screenshots").exists() else []:
-        (SCRATCH / "shots").mkdir(exist_ok=True)
-        shutil.copy2(shot, SCRATCH / "shots" / f"{b.MINECRAFT_VERSIONS[index]}-{loader}-{shot.name}")
-
     text = log.read_text(errors="replace")
+    # the pictures of this run, oldest first, are the "AUTOTEST screenshot <name>" lines of the log in their order: the newest versions
+    # of the game name the files by the time, and a test of a suite has its name in front (<test>__<name>)
+    shots = sorted((run / "screenshots").glob("*.png"), key=lambda f: f.stat().st_mtime) if (run / "screenshots").exists() else []
+    names = re.findall(r"AUTOTEST screenshot (\S+)", text)
+    (SCRATCH / "shots").mkdir(exist_ok=True)
+    for i, shot in enumerate(shots):
+        name = names[i] + ".png" if len(names) == len(shots) else shot.name
+        shutil.copy2(shot, SCRATCH / "shots" / f"{b.MINECRAFT_VERSIONS[index]}-{loader}-{name}")
+    if SUITE:
+        # what every test of the suite did; a test the game never came to (a crash, the time ran out) did not run
+        done = dict(re.findall(r"AUTOTEST TEST (\S+) (PASSED|FAILED[^\n]*)", text))
+        begun = re.findall(r"AUTOTEST TEST (\S+) BEGIN", text)
+        tests = {}
+        for name in SUITE:
+            if name in done:
+                tests[name] = (done[name] == "PASSED", "ok" if done[name] == "PASSED" else done[name][7:].strip()[:300])
+            elif name in begun:
+                tests[name] = (False, "the game ended in this test (crash or the time ran out)")
+            else:
+                tests[name] = (False, "not run: the game ended before it")
+        with _slot_lock:
+            SUITE_RESULTS[label] = tests
+            (SCRATCH / "results-tests.json").write_text(json.dumps(SUITE_RESULTS, indent=1))
     crashes = list((run / "crash-reports").glob("*.txt")) if (run / "crash-reports").exists() else []
     # vanilla's own watchdog after "AUTOTEST PASSED": the game closed late (a narrator library is missing), not a crash of the mod
     crashes = [c for c in crashes if "Client shutdown from post-main" not in c.read_text(errors="ignore")[:600]]
@@ -321,6 +344,25 @@ TEST_TEXT = ""                      # the test file that goes next to every game
 def load_test(path) -> dict:
     """autotest.yml: `key: value` lines at the top (name, world, timeout) and `- step: value` lines (see AutoTest.java)."""
     global TEST_TEXT, RUN_TIMEOUT
+    SUITE.clear()
+    SUITE_RESULTS.clear()
+    RUN_TIMEOUT = 420
+    if path and "," in str(path):
+        # a suite: the steps of every file one after another, each begun by a "- test: <name>" step. One start of the game for all of them.
+        lines, total = ["name: suite", "world: true", "steps:"], 240
+        for one in [p.strip() for p in str(path).split(",") if p.strip()]:
+            file = Path(one)
+            text = file.read_text()
+            SUITE.append(file.stem)
+            lines.append(f"  - test: {file.stem}")
+            lines += [l for l in text.splitlines() if l.strip().startswith("- ")]
+            limit = re.search(r"^timeout:\s*(\d+)", text, re.M)
+            total += int(limit.group(1)) if limit else 150
+        TEST_TEXT = "\n".join(lines) + "\n"
+        RUN_TIMEOUT = total
+        TEST_META.clear()
+        TEST_META.update({"name": "suite", "world": True})
+        return dict(TEST_META)
     file = Path(path) if path else TEST_FILE
     if not file.exists() and not path:
         found = sorted((b.ROOT / "tests").glob("*.yml"))        # no autotest.yml: the first test of tests/

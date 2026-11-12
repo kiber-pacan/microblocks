@@ -754,19 +754,27 @@ def main() -> int:
             for name in names:
                 if labels and (not mine.only_tests or name in mine.only_tests.split(",")):
                     plan.append((tier, name, labels, games))
+        # one start of the game per build: the builds that run the same tests (with the same number of games at once) go together
+        tiers_of, groups = {}, {}
+        for tier, name, labels, games in plan:
+            for label in labels:
+                tiers_of.setdefault((games, label), []).append(name)
+        for (games, label), names in tiers_of.items():
+            groups.setdefault((games, tuple(names)), []).append(label)
         state_file = report / "matrix.json"
         state = json.loads(state_file.read_text()) if state_file.exists() else {"tests": [], "results": {}, "seconds": {}}
-        for number, (tier, name, labels, games) in enumerate(plan):
+        order = sorted(groups.items(), key=lambda g: (g[0][0] == 1, -len(g[1])))
+        for number, ((games, names), labels) in enumerate(order):
             if autotest.STOP.is_set() and number:
                 break
             began = time.time()
             grid.reset()
             grid.on_plan(labels, [], [])
-            grid.status = f"{tier}: {name}  ({number + 1} of {len(plan)} tests, {len(labels)} runs)"
+            grid.status = f"group {number + 1} of {len(order)}: {len(names)} tests in one start, {len(labels)} builds, {games} at once"
             root.title(f"autotest - {grid.status}")
             running.set()
-            argv = extra + [f"tests/{name}.yml", "--labels", ",".join(labels), "-j", str(games), "--builds", "2" if games > 1 else "1", "--xvfb", "--plain", "--force",
-                            "--newest-first"] + (["--fast-mods"] if fastmods.get() else []) + (["--gpu"] if gpu.get() else [])
+            argv = extra + [",".join(f"tests/{name}.yml" for name in names), "--labels", ",".join(labels), "-j", str(games), "--builds", "2" if games > 1 else "1",
+                            "--xvfb", "--plain", "--force", "--newest-first"] + (["--fast-mods"] if fastmods.get() else []) + (["--gpu"] if gpu.get() else [])
             try:
                 autotest.main(argv)
             except SystemExit as e:
@@ -775,23 +783,25 @@ def main() -> int:
                 grid.status = f"error: {e}"
             finally:
                 running.clear()
-            results = autotest.load_json(autotest.SCRATCH / "results.json")
-            if name not in state["tests"]:
-                state["tests"].append(name)
-            state["results"].setdefault(name, {}).update({l: r for l, r in results.items() if l in labels})
-            state["seconds"][name] = int(time.time() - began)
-            (report / "shots" / name).mkdir(exist_ok=True)
-            (report / "logs" / name).mkdir(parents=True, exist_ok=True)
+            runs = autotest.load_json(autotest.SCRATCH / "results.json")
+            tests = autotest.load_json(autotest.SCRATCH / "results-tests.json")
+            (report / "logs").mkdir(exist_ok=True)
             for label in labels:
                 version, loader = label.split("/")
-                for shot in (autotest.SCRATCH / "shots").glob(f"{version}-{loader}-*.png"):
-                    if shot.stat().st_mtime >= began - 2:
-                        shutil.copy2(shot, report / "shots" / name / shot.name)
+                for name in names:
+                    if name not in state["tests"]:
+                        state["tests"].append(name)
+                    result = (tests.get(label) or {}).get(name) or [False, "no result: " + str((runs.get(label) or [0, "the run did not happen"])[1])]
+                    state["results"].setdefault(name, {})[label] = result
+                    (report / "shots" / name).mkdir(exist_ok=True)
+                    for shot in (autotest.SCRATCH / "shots").glob(f"{version}-{loader}-{name}__*.png"):
+                        if shot.stat().st_mtime >= began - 2:
+                            shutil.copy2(shot, report / "shots" / name / shot.name)
                 log = grid.log_path(label)
-                if log is not None and os.path.exists(log) and os.path.getmtime(log) >= began - 2:
-                    shutil.copy2(log, report / "logs" / name / os.path.basename(log))
+                if os.path.exists(log) and os.path.getmtime(log) >= began - 2:
+                    shutil.copy2(log, report / "logs" / os.path.basename(log))
             state_file.write_text(json.dumps(state, indent=1))
-            print(f"MATRIX {tier} {name}: {sum(1 for l in labels if results.get(l, [False])[0])} of {len(labels)} passed in {int(time.time() - began)} s", flush=True)
+            print(f"MATRIX group {number + 1}: {len(labels)} builds x {len(names)} tests in {int(time.time() - began)} s", flush=True)
         try:
             print("MATRIX sheet", matrix_sheet.build(report), flush=True)
         except Exception as e:
