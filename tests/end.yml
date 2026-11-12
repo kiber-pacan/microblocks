@@ -6,5 +6,5 @@ steps:
   - open-world: TestWorld
   - wait: world
   - command: gamemode creative @p
-  - wait: 15s
+  - sleep: 15s
   - screenshot: end

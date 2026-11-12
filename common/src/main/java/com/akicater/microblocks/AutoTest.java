@@ -199,6 +199,21 @@ public final class AutoTest {
         #endif
     }
 
+    private static int settledTicks, settledAt = -1, settledServer;
+
+    /** The world round the player is there and drawn, and the server went on since: three ticks in a row. */
+    private static boolean settled(Minecraft mc, IntegratedServer server) {
+        if (settledAt != index || stepTicks <= 1) {      // a new step: count again
+            settledAt = index;
+            settledTicks = 0;
+            settledServer = server.getTickCount();
+        }
+        boolean drawn = mc.player != null && mc.level.getChunkSource().hasChunk(mc.player.blockPosition().getX() >> 4, mc.player.blockPosition().getZ() >> 4)
+                && mc.levelRenderer.#if MC_VER >= V1_20_4 hasRenderedAllSections() #else hasRenderedAllChunks() #endif;
+        settledTicks = drawn ? settledTicks + 1 : 0;
+        return settledTicks >= 3 && server.getTickCount() - settledServer >= 3;
+    }
+
     private static int duration(String value) {
         try {
             if (value.endsWith("ticks")) return Integer.parseInt(value.substring(0, value.length() - 5).trim());
@@ -285,8 +300,8 @@ public final class AutoTest {
                     run(server, "gamemode creative @p");
                     run(server, "clear @p");
                     run(server, "tp @p " + testNumber * 400 + ".0 -60 0.0 0 0");
-                } else if (stepTicks > 60) {
-                    next();      // three seconds for the chunks of the new place
+                } else if (stepTicks > 60 || stepTicks >= 10 && settled(mc, server)) {
+                    next();      // the chunks of the new place: three seconds at most
                 }
             }
             case "wait" -> {
@@ -297,9 +312,12 @@ public final class AutoTest {
                     // a confirmation on the way into the world (experimental settings, missing data pack, backup): say yes
                     if (inWorld) next();
                     else if (stepTicks % 40 == 0 && screen != null && !(screen instanceof TitleScreen)) confirm(mc);
-                } else if (stepTicks >= duration(value)) {
-                    next();
+                } else if (stepTicks >= duration(value) || inWorld && stepTicks >= Math.max(6, duration(value) / 6) && settled(mc, server)) {
+                    next();      // the time is the most a wait takes: it is over as soon as the world is drawn and nothing is being loaded
                 }
+            }
+            case "sleep" -> {
+                if (stepTicks >= duration(step.value())) next();      // exactly this long, whatever the game does (waiting for a key from outside)
             }
             case "open-world" -> {
                 if (inWorld) { next(); return; }      // a later test of the same start: the world is open
@@ -853,6 +871,11 @@ public final class AutoTest {
             }
             case "micro-debug" -> {
                 MicroConfig.debugMesh = step.value().equals("on");
+                next();
+            }
+            case "held" -> {
+                // what is in the hand, by its name (a microblock has its sizes in it): to see that a key turned it
+                System.out.println("AUTOTEST held " + (mc.player == null ? "nothing" : mc.player.getMainHandItem().getHoverName().getString() + (mc.player.getMainHandItem().getItem() instanceof MicroItem ? ", turn " + MicroItemData.rotation(mc.player.getMainHandItem()) : "")));
                 next();
             }
             case "micro-hold" -> {

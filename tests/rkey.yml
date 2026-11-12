@@ -1,0 +1,19 @@
+# The turn key (R): pressed from outside (tools/keyrun.sh ... 27) while a microblock is in the hand; its sizes must change.
+name: microblocks rkey
+world: true
+steps:
+  - wait: title
+  - open-world: TestWorld
+  - wait: world
+  - command: gamemode creative @p
+  - command: tp @p ~ -60 ~ 0 25
+  - micro-hold: yes
+  - sleep: 2s
+  - held: 1
+  - sleep: 0.7s
+  - held: 2
+  - sleep: 0.7s
+  - held: 3
+  - sleep: 0.7s
+  - held: 4
+  - screenshot: rkey

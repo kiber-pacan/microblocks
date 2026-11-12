@@ -255,7 +255,7 @@ def _play(index: int, loader: str, info: dict, run: Path, log: Path, display, la
                     if time.time() - no_hook > 60:
                         os.killpg(proc.pid, signal.SIGKILL)
                         return False, "the test hook did not start (classes built without -Pautotest?)"
-            if (done_at and time.time() - done_at > 40) or time.time() > deadline or STOP.is_set():
+            if (done_at and time.time() - done_at > 3) or time.time() > deadline or STOP.is_set():
                 os.killpg(proc.pid, signal.SIGKILL)
                 if not done_at:
                     return False, "timeout"
