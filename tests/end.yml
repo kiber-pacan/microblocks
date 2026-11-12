@@ -1,0 +1,10 @@
+# The wheel on End: the key is pressed from outside (tools/presskey.py on the virtual screen) while the game waits.
+name: microblocks end
+world: true
+steps:
+  - wait: title
+  - open-world: TestWorld
+  - wait: world
+  - command: gamemode creative @p
+  - wait: 15s
+  - screenshot: end

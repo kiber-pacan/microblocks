@@ -1,0 +1,71 @@
+// IntelliJ runs the "Minecraft Client/Server" Application configs on the *project SDK*, ignoring
+// gradle toolchains. Old minecraft refuses to start on new JDKs, so pin every generated run
+// configuration to the JDK the selected minecraft version needs (17 / 21 / 25).
+def pinIdeaRunJre = {
+    def jdk = new File("/usr/lib/jvm/java-${rootProject.java_version}-temurin")
+    def dir = new File(rootDir, ".idea/runConfigurations")
+    if (!jdk.exists() || !dir.isDirectory()) return
+
+    dir.listFiles({ File f -> f.name.endsWith(".xml") } as FileFilter).each { File f ->
+        String original = f.text
+        String text = original.replaceAll(/\s*<option name="ALTERNATIVE_JRE_PATH(_ENABLED)?" value="[^"]*"\s*\/>/, "")
+        text = text.replaceFirst(/(<configuration [^>]*>)/,
+                '$1\n    <option name="ALTERNATIVE_JRE_PATH" value="' + jdk.absolutePath + '"/>' +
+                '\n    <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="true"/>')
+        // Loom generates the VM options for the JDK gradle runs on (25); older JDKs refuse to start with them
+        int major = Integer.parseInt(rootProject.java_version.toString())
+        if (major < 23) text = text.replace(" --sun-misc-unsafe-memory-access=allow", "")
+        if (major < 17) text = text.replace(" --enable-native-access=ALL-UNNAMED", "")
+        if (text != original) f.text = text
+    }
+}
+
+
+// IntelliJ compiles with its own compiler before every launch, at the bytecode level of the project: if that is Java 25
+// but the game runs on 21 or 17, the classes are refused (UnsupportedClassVersionError). Keep it at the level of the
+// selected Minecraft version.
+def pinIdeaBytecodeLevel = {
+    File xml = new File(rootDir, ".idea/compiler.xml")
+    if (!xml.isFile()) return
+    String text = xml.text
+    String pinned = text.replaceAll(/<bytecodeTargetLevel target="\d+"\s*\/>/, '<bytecodeTargetLevel target="' + rootProject.java_version + '" />')
+    if (pinned != text) xml.text = pinned
+}
+pinIdeaBytecodeLevel()
+
+// Loom keeps the launch config of a loader in one of two places (old: <loader>/.gradle/loom-cache/launch.cfg, new:
+// .gradle/loom-cache/projects/<loader>/launch.cfg). When the Minecraft version changes the IDE configuration can keep
+// pointing at the stale one - with the natives folder of another version (LWJGL "Incompatible Java and native library
+// versions"). Point every run configuration at the launch config that was written last.
+def pinIdeaLaunchConfig = {
+    File dir = new File(rootDir, ".idea/runConfigurations")
+    if (!dir.isDirectory()) return
+
+    dir.listFiles({ File f -> f.name.endsWith(".xml") } as FileFilter).each { File f ->
+        String text = f.text
+        def m = (text =~ /-Dfabric\.dli\.config=(\S+?launch\.cfg)/)
+        if (!m.find()) return
+        String current = m.group(1)
+
+        String loader = (current =~ /projects\/(\w+)\/launch\.cfg/).with { it.find() ? it.group(1) : null }
+        if (loader == null) loader = (current =~ /\/(\w+)\/\.gradle\/loom-cache\/launch\.cfg/).with { it.find() ? it.group(1) : null }
+        if (loader == null) return
+
+        File fresh = [new File(rootDir, ".gradle/loom-cache/projects/${loader}/launch.cfg"),
+                      new File(rootDir, "${loader}/.gradle/loom-cache/launch.cfg")]
+                .findAll { it.isFile() }.max { it.lastModified() }
+        if (fresh != null && fresh.absolutePath != current) {
+            f.text = text.replace(current, fresh.absolutePath)
+        }
+    }
+}
+pinIdeaLaunchConfig()
+
+pinIdeaRunJre()
+
+tasks.register("pinIdeaRunJre") { doLast { pinIdeaRunJre(); pinIdeaBytecodeLevel(); pinIdeaLaunchConfig() } }
+allprojects {
+    tasks.matching { it.name == "genIdeaWorkspace" || it.name == "ideaSyncTask" }.configureEach {
+        finalizedBy(rootProject.tasks.named("pinIdeaRunJre"))
+    }
+}

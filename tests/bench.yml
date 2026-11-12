@@ -1,0 +1,11 @@
+# How long the work on a battered block takes.
+name: microblocks bench
+world: true
+steps:
+  - wait: title
+  - open-world: TestWorld
+  - wait: world
+  - peaceful-world: yes
+  - wait: 3s
+  - micro-bench: yes
+  - wait: 1s

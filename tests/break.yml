@@ -1,0 +1,23 @@
+# Several parts in one block space: breaking one takes only that one, and the rest still shows.
+name: microblocks break
+world: true
+steps:
+  - wait: title
+  - open-world: TestWorld
+  - wait: world
+  - peaceful-world: yes
+  - command: gamemode creative @p
+  - command: time set day
+  - command: weather clear
+  - command: tp @p ~ -60 ~ 0 25
+  - wait: 4s
+  - micro-multi: yes
+  - wait: 3s
+  - screenshot: before
+  - micro-pick: yes
+  - micro-break: yes
+  - wait: 0.25s
+  - screenshot: particles
+  - micro-watch: yes
+  - wait: 3s
+  - screenshot: after

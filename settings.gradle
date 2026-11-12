@@ -1,0 +1,317 @@
+import groovy.json.JsonSlurper
+import groovy.xml.XmlSlurper
+
+// Every sync used to ask eight web services (Fabric, Forge, NeoForge, Modrinth, Parchment, Maven) through the proxy.
+// Answers are kept for 6 hours, a failed request is retried, and the last answer is used if the network is down.
+class Fetch {
+    static String text(String link) {
+        File dir = new File(System.getProperty("user.home"), ".gradle/akicater-settings-cache")
+        dir.mkdirs()
+        String name = new BigInteger(1, java.security.MessageDigest.getInstance("MD5").digest(link.getBytes("UTF-8"))).toString(16)
+        File file = new File(dir, name)
+
+        if (file.exists() && System.currentTimeMillis() - file.lastModified() < 6L * 60 * 60 * 1000) {
+            return file.getText("UTF-8")
+        }
+
+        for (int attempt = 1; ; attempt++) {
+            try {
+                URLConnection connection = URI.create(link).toURL().openConnection()
+                connection.setConnectTimeout(10000)
+                connection.setReadTimeout(30000)
+                String body = connection.getInputStream().getText("UTF-8")
+                file.setText(body, "UTF-8")
+                return body
+            } catch (IOException e) {
+                if (attempt >= 3) {
+                    if (file.exists()) return file.getText("UTF-8") // stale, but better than a failed sync
+                    throw e
+                }
+                Thread.sleep(500L * attempt)
+            }
+        }
+    }
+}
+
+pluginManagement {
+    repositories {
+        maven { url "https://maven.fabricmc.net/" }
+        maven { url "https://maven.architectury.dev/" }
+        maven { url "https://files.minecraftforge.net/maven/" }
+        maven { url = 'https://maven.maxhenkel.de/repository/public' }
+        gradlePluginPortal()
+    }
+    int version_index = Integer.valueOf(providers.gradleProperty("version_index").get())
+
+
+    // For versions <= than 1.19.4 use 1.13 version of architectury loom to stop forge from crying
+    resolutionStrategy {
+        eachPlugin {
+            if (requested.id.id == 'dev.architectury.loom') {
+                useVersion(((version_index <= 4) ? "1.13-SNAPSHOT" : "1.17-SNAPSHOT"))
+            }
+        }
+    }
+}
+
+// VARIABLES
+int version_index = Integer.valueOf(providers.gradleProperty("version_index").get())
+
+rootProject.name = 'microblocks'
+
+// Create build.properties file for preprocessor
+def write_gradle_predefine(List<String> minecraft_versions, int version) {
+    StringBuilder sb = new StringBuilder()
+    for (int i = 0; i < minecraft_versions.size(); i++) {
+        String verStr = minecraft_versions[i].replace(".", "_")
+        sb.append("V" + verStr + "=" + i.toString() + "\n")
+
+        if (version == i)
+            sb.append("MC_VER=" + i.toString() + "\n")
+    }
+
+    // -Pautotest=1 compiles the in-game test hook (see AutoTest), a normal build does not contain it
+    sb.append("AUTOTEST=" + (providers.gradleProperty("autotest").orElse("0").get() == "1" ? "1" : "0") + "\n")
+
+    sb.append("LOADER=0\n")
+
+    sb.append("COMMON=0\n")
+    sb.append("FABRIC=1\n")
+    sb.append("NEOFORGE=2\n")
+    sb.append("FORGE=3\n")
+
+    new File(rootDir, "build.properties").text = sb.toString()
+}
+
+// Get minecraft version index
+def minecraft_versions = [
+        "1.16.5",  // 0
+        "1.17.1",  // 1
+        "1.18.2",  // 2
+        "1.19.2",  // 3
+        "1.19.4",  // 4
+        "1.20.1",  // 5
+        "1.20.4",  // 6
+        "1.21",    // 7
+        "1.21.1",  // 8
+        "1.21.3",  // 9
+        "1.21.4",  // 10
+        "1.21.5",  // 11
+        "1.21.6",  // 12
+        "1.21.7",  // 13
+        "1.21.8",  // 14
+        "1.21.9",  // 15
+        "1.21.10", // 16
+        "1.21.11", // 17
+        "26.1",    // 18
+        "26.1.1",  // 19
+        "26.1.2",  // 20
+        "26.2",    // 21
+        "26.3",    // 22
+]
+
+def minecraft_version = minecraft_versions.get(version_index)
+gradle.ext.set("minecraft_version", minecraft_version)
+
+println("version: ${minecraft_version}, index: ${version_index}")
+
+write_gradle_predefine(minecraft_versions, version_index)
+
+
+// region === JAVA VERSION START ===
+static def resolve_java_version(int v) {
+    if (v < 7) return "17"
+    if (v < 17) return "21"
+    return "25"
+}
+
+def java_version = resolve_java_version(version_index)
+
+gradle.ext.set("java_version", java_version)
+
+// endregion === JAVA VERSION END ===
+
+// region === PLATFORMS START ===
+include "common"
+def platforms = ["fabric"]
+
+static def resolve_forge_family(int v, def platforms) {
+    if (v == 6) return
+
+    if (v < 7)  platforms.add("forge")
+    else        platforms.add("neoforge")
+}
+
+resolve_forge_family(version_index, platforms)
+for (String platform : platforms) include(platform)
+
+gradle.ext.set("platforms", platforms.join(",") as String)
+// endregion === PLATFORMS END ===
+
+
+// region ------ VERSION FETCHING ------
+
+// region FUNCTIONS
+// LINKS
+String FABRIC_LOADER_VERSION_LINK = "https://meta.fabricmc.net/v2/versions/loader"
+
+String FABRIC_API_VERSION_LINK = "https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/maven-metadata.xml"
+String FORGE_VERSION_LINK = "https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml"
+String NEOFORGE_VERSION_LINK = "https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml"
+String PARCHMENT_BASE = "https://ldtteam.jfrog.io/artifactory/api/storage/parchmentmc-public/org/parchmentmc/data/"
+String MANIFOLD_LINK = "https://repo.maven.apache.org/maven2/systems/manifold/manifold-all/maven-metadata.xml"
+
+static List<String> parse_xml_versioning(String link) {
+    return new XmlSlurper().parseText(Fetch.text(link)).getAt("versioning").getAt("versions").getAt("version").collect() { it.text() }
+
+}
+
+// Only fabric and forge
+def get_version = { String link ->
+    return parse_xml_versioning(link).reverse().find { api ->
+        def splitted = (api as String).split('\\+')
+        return splitted.size() == 2 && splitted[1].equals(minecraft_version)
+    }
+}
+
+def get_version_neoforge = { String link ->
+    return parse_xml_versioning(link).reverse().find { String api ->
+        def stripped_mc = (version_index >= 18 ? minecraft_version : minecraft_version.substring(2)) + (minecraft_version.count(".") < 2 ? ".0" : "")
+
+        def stripped_version = api.substring(0, api.lastIndexOf("."))
+
+        //print stripped_mc + " "
+        //println stripped_version + " " + String.valueOf(stripped_version == stripped_mc)
+
+        return stripped_mc == stripped_version
+    }
+}
+
+def get_version_latest = { String link ->
+    return parse_xml_versioning(link).reverse()[0]
+}
+
+def get_mod_version = { String modid ->
+    var versions =
+            new JsonSlurper().parseText(Fetch.text("https://api.modrinth.com/v2/project/${modid}/version"))
+
+    return versions.find {version ->
+        version["game_versions"].contains(minecraft_version)
+    }["version_number"]
+}
+
+// [fabric_version, fabric_version_name,
+//  neoforge_version, neoforge_version_name,
+//  forge_version, forge_version_name,
+//  base_version_name]
+def get_loader_dependent = { String modid ->
+    var versions =
+            new JsonSlurper().parseText(Fetch.text("https://api.modrinth.com/v2/project/${modid}/version"))
+
+    List<String> versions_loader_dependent = new ArrayList<>()
+
+    List<String> loaders = ["fabric", "neoforge", "forge"]
+
+    for (var loader : loaders) {
+        var version_object = versions.find {version ->
+            version["game_versions"].contains(minecraft_version) && version["loaders"].contains(loader)
+        }
+
+        versions_loader_dependent.add(modid.replace("-", "_") + "_version_" + loader)
+        versions_loader_dependent.add((version_object != null) ? version_object["version_number"] as String : "")
+    }
+    String base = modid.replace("-", "_") + "_version"
+
+    versions_loader_dependent.add(base)
+    gradle.ext.get("loader_dependent").add(base)
+
+    return versions_loader_dependent
+}
+
+def add_loader_dependent = { String modid ->
+    List<String> versions = get_loader_dependent(modid)
+
+    gradle.ext.set(versions[0], versions[1]) //modid_fabric = ver
+    gradle.ext.set(versions[2], versions[3]) //modid_neoforge = ver
+    gradle.ext.set(versions[4], versions[5]) //modid_forge = ver]
+    //modid_versions = [fabric_ver, neoforge_ver, forge_ver]
+    gradle.ext.set(versions[6] + "s", versions)
+
+    gradle.ext.get("loader_dependent").add(versions[6])
+}
+
+def add_loader_independent = { String modid ->
+    String version = modid.replace("-", "_") + "_version"
+
+    gradle.ext.set(version, get_mod_version(modid))
+    gradle.ext.get("loader_independent").add(version)
+}
+// endregion
+
+// region LOADERS
+// === FABRIC START ===
+gradle.ext.set("fabric_loader_version", new JsonSlurper().parseText(Fetch.text(FABRIC_LOADER_VERSION_LINK))[0]["version"])
+
+gradle.ext.set("fabric_api_version", get_version(FABRIC_API_VERSION_LINK))
+// === FABRIC END ===
+
+
+// === NEOFORGE START ===
+gradle.ext.set("neoforge_version", get_version_neoforge(NEOFORGE_VERSION_LINK))
+// === NEOFORGE END ===
+
+
+// === FORGE START ===
+gradle.ext.set("forge_version", (version_index < 18) ? parse_xml_versioning(FORGE_VERSION_LINK).reverse().find {
+    api -> (api as String).contains(minecraft_version)
+} : "fuck you")
+// === FORGE END ===
+// endregion
+
+// region === PARCHMENT ===
+var parchemnt_acceptable =
+        new JsonSlurper().parseText(Fetch.text(PARCHMENT_BASE))["children"]
+                .collect {
+                    it ->
+                        {
+                            String version = it["uri"]
+                            return version.substring(11, version.size())
+                        }
+                }
+
+static def resolve_parchment_version(def versions, def minecraft_version) {
+    return versions.find { version ->
+        !version.get("uri").contains("SNAPSHOT") && ! version.get("uri").contains("metadata")
+    }.get("uri") as String
+}
+
+if (parchemnt_acceptable.contains(minecraft_version)) {
+    String parchment_version = resolve_parchment_version(
+            new JsonSlurper().parseText(Fetch.text(PARCHMENT_BASE + "/parchment-" + minecraft_version))["children"],
+            minecraft_version
+    )
+    parchment_version = parchment_version.substring(1, parchment_version.size())
+
+    gradle.ext.parchment_version = parchment_version
+}
+// endregion
+
+// region === MODRINTH ===
+def loader_independent = ["modmenu"]
+gradle.ext.set("loader_independent", [])
+
+for (String modid : loader_independent) add_loader_independent(modid)
+
+def loader_dependent = ["architectury-api"]
+gradle.ext.set("loader_dependent", [])
+
+// ModernFix, FerriteCore and LazyDFU make the game start sooner: only for test runs started with -Pfastmods=1 (autotest.py --fast-mods)
+if (gradle.startParameter.projectProperties.containsKey("fastmods")) loader_dependent = loader_dependent + ["modernfix", "ferrite-core", "lazydfu"]
+for (String modid : loader_dependent) add_loader_dependent(modid)
+// endregion
+
+// region === MANIFOLD ===
+gradle.ext.set("manifold_version", get_version_latest(MANIFOLD_LINK))
+// endregion === MANIFOLD ===
+
+// endregion

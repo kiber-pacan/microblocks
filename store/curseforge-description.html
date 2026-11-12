@@ -1,0 +1,62 @@
+<p>Cut any block into pieces as small as <b>1/16 of a block</b> and put as many pieces as you like into one block space. Build with slabs 1 pixel thick, sticks 2 pixels wide, windows, shutters, shingles, beams, flower boxes, lanterns, railings, hinges: shapes that no stair or slab has.</p>
+<p>Every piece is a real box with its own material, so one block space can hold a stone plinth, an oak post, a glass pane and a brass handle at once. It all renders like an ordinary block: smooth lighting, ambient occlusion, works with Sodium, works on OpenGL and Vulkan.</p>
+<img src="manor.png" alt="A half-timbered manor">
+<p><i>The roof is made of shingles 4/16 deep and 3/16 high, so the slope is far finer than a stair or slab can do. Plinth, walls, beams, windows with frames and shutters, planters, lanterns and the path: all microblocks.</i></p>
+<h2>What you can build</h2>
+<img src="castle.png" alt="Castle gate">
+<p><i>A gatehouse with battered base, corbelled towers, merlons, arrow slits, a round arch with a raised portcullis and banners.</i></p>
+<img src="bridge.png" alt="Humped bridge">
+<p><i>An arched bridge: every slice of the arch is its own box.</i></p>
+<img src="market.png" alt="Market and well">
+<p><i>A market stall with a striped awning, fruit trays, barrels, a well with a roof, flower beds and lamp posts.</i></p>
+<h2>Shapes</h2>
+<p>Three shapes (plane, stick, cube) in the standard sizes 1/16, 1/8, 1/4 and 1/2, plus any other size you cut on the table.</p>
+<img src="shapes.png" alt="Planes, sticks, cubes and odd boxes">
+<img src="palette.png" alt="Every material in a row">
+<img src="furniture.png" alt="Furniture">
+<p><i>A table with 2/16 legs, a chair, a shelf with books and a lamp.</i></p>
+<h2>Placing</h2>
+<ul>
+<li><b>Free placement with snapping</b>, like directional blocks: the piece snaps to the face you look at.</li>
+<li><b>Auto rotation</b>: the long side lies along the nearest edge, the thin side to the surface. To turn it yourself, use the item in the air.</li>
+<li><b>Preview</b>: a black outline shows exactly where the piece will go before you place it.</li>
+<li>Several pieces share one block space; overlapping pieces are refused, touching ones are fine.</li>
+<li>In the hand, in a slot and on the ground you see the <b>real 3D model</b> of the piece, not a flat texture.</li>
+</ul>
+<img src="hand-plane.png" alt="Plane, stick and cube in the hand with their outlines">
+<h2>Microblock Table</h2>
+<p>A special block. Put a block or a microblock in, choose the axis (X / Y / Z) and the sixteenth, press <i>Cut it</i>: you get the two pieces. Cut as often as you want, down to 1/16.</p>
+<img src="table-cut.png" alt="The table, cutting">
+<h2>Blueprints and prefabs</h2>
+<p>Right-click a block of microblocks with <b>vanilla paper</b> to make a <b>blueprint</b> of it. On the table, put the blueprint and the materials: the table works out how many prefabs the material volume gives and returns the leftover as planes.</p>
+<p>A <b>prefab</b> places the whole build at once, anywhere. In the world it is shown as a translucent blue ghost with black outlines of its parts; in the hand and in a slot it is the real model in blue.</p>
+<img src="hand-prefab.png" alt="A prefab ghost in the world">
+<img src="table-prefab.png" alt="The table, prefabs">
+<h2>More pictures</h2>
+<img src="tower.png" alt="Tower">
+<img src="stairs.png" alt="Stairs with thin rails">
+<img src="pergola.png" alt="Pergola">
+<img src="cottage.png" alt="Cottage">
+<h2>Details</h2>
+<ul>
+<li>Greedy meshing inside a block space: neighbouring pieces of one material merge into one face, so a big build stays light.</li>
+<li>Works with <b>Sodium</b>: the pieces are part of the chunk mesh, not an entity.</li>
+<li>Works with the Vulkan backend (checked on the newest version).</li>
+<li>Creative tab with the table and the standard shapes of sample materials.</li>
+<li><code>/microblock give &lt;block&gt; &lt;a&gt; &lt;b&gt; &lt;c&gt; [count]</code> gives a piece of any size, in sixteenths.</li>
+</ul>
+<h2>Supported versions</h2>
+<p>Minecraft <b>1.18.2 to 26.3</b> (26.1 and 26.1.1 are skipped).</p>
+<table>
+<tr><th>Versions</th><th>Loaders</th></tr>
+<tr><td>1.18.2, 1.19.2, 1.19.4, 1.20.1</td><td>Fabric, Forge</td></tr>
+<tr><td>1.20.4</td><td>Fabric</td></tr>
+<tr><td>1.21 to 26.3</td><td>Fabric, NeoForge</td></tr>
+</table>
+<h2>Requires</h2>
+<ul>
+<li><b>Aki Lib</b> (the shared library of my mods)</li>
+<li>Architectury API</li>
+<li>Fabric API on Fabric</li>
+</ul>
+<p>The pictures were made with the mod's own scenes on a flat world.</p>

@@ -1,0 +1,16 @@
+# A part put into an empty, drawn block space by the way a player does it must be drawn at once (and not only after a neighbour changes).
+name: microblocks live placement
+world: true
+steps:
+  - wait: title
+  - open-world: TestWorld
+  - wait: world
+  - peaceful-world: yes
+  - command: gamemode spectator @p
+  - command: time set day
+  - command: weather clear
+  - command: tp @p ~ -60 ~ 0 25
+  - wait: 4s
+  - micro-live: yes
+  - wait: 2s
+  - screenshot: live

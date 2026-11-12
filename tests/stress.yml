@@ -1,0 +1,13 @@
+# A scene of very many badly battered blocks, put at random: the time to make it and the frames.
+name: microblocks stress
+world: true
+steps:
+  - wait: title
+  - open-world: TestWorld
+  - wait: world
+  - peaceful-world: yes
+  - command: gamemode creative @p
+  - command: time set day
+  - command: weather clear
+  - wait: 3s
+  - micro-stress: yes

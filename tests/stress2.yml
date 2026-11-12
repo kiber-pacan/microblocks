@@ -1,0 +1,13 @@
+# Many battered blocks put down as statues, then broken one after another.
+name: microblocks stress 2
+world: true
+steps:
+  - wait: title
+  - open-world: TestWorld
+  - wait: world
+  - peaceful-world: yes
+  - command: gamemode survival @p
+  - command: time set day
+  - command: weather clear
+  - wait: 3s
+  - micro-stress2: yes

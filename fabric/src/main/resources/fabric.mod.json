@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "${modid}",
+  "version": "${version}",
+  "name": "${name}",
+  "description": "${description}",
+  "authors": [
+    "${authors}"
+  ],
+  "license": "${license}",
+  "icon": "assets/${modid}/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.akicater.microblocks.fabric.Microblocks_Fabric"
+    ],
+    "client": [
+      "com.akicater.microblocks.fabric.client.Microblocks_FabricClient"
+    ],
+    "modmenu": [
+      "com.akicater.microblocks.fabric.client.MicroModMenu"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=${fabric_loader_version}",
+    "minecraft": "~${minecraft_version}",
+    "java": ">=${java}",
+    "architectury": ">=${architectury_api_version}",
+    "akilib": ">=${akilib_version}",
+    "fabric-api": "*"
+  }
+}

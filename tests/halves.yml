@@ -1,0 +1,16 @@
+# A block cut into two pieces: each piece keeps its part of the texture.
+name: microblocks halves
+world: true
+steps:
+  - wait: title
+  - open-world: TestWorld
+  - wait: world
+  - peaceful-world: yes
+  - command: gamemode spectator @p
+  - command: time set day
+  - command: weather clear
+  - command: tp @p ~ -60 ~ 0 20
+  - wait: 4s
+  - micro-halves: yes
+  - wait: 3s
+  - screenshot: halves

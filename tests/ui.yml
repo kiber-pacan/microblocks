@@ -1,0 +1,26 @@
+# The wheel (End), the settings, the mesh view and the preview of the box that would be placed.
+name: microblocks ui
+world: true
+steps:
+  - wait: title
+  - open-world: TestWorld
+  - wait: world
+  - peaceful-world: yes
+  - command: gamemode creative @p
+  - command: time set day
+  - command: weather clear
+  - command: tp @p ~ -60 ~ 0 25
+  - wait: 4s
+  - micro-corner: yes
+  - micro-hold: yes
+  - micro-debug: on
+  - wait: 3s
+  - screenshot: mesh
+  - micro-debug: off
+  - micro-screen: wheel
+  - wait: 2s
+  - screenshot: wheel
+  - micro-screen: config
+  - wait: 2s
+  - screenshot: config
+  - micro-screen: none

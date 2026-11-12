@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "microblocks:block/table_top",
+    "side": "microblocks:block/table_side",
+    "bottom": "microblocks:block/table_bottom"
+  }
+}

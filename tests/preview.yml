@@ -1,0 +1,27 @@
+# The outline of the place where a held microblock would go: a plane 1/4 thick, a stick and a cube are held in turn and a block is looked at.
+name: placement preview
+world: true
+steps:
+  - wait: title
+  - open-world: TestWorld
+  - wait: world
+  - peaceful-world: yes
+  - command: gamemode creative @p
+  - command: time set day
+  - command: weather clear
+  - command: give @p microblocks:microblock[custom_data={material:"minecraft:stone_bricks",a:16,b:16,c:4}]
+  - command: execute as @p at @s run tp @s ~ ~ ~ 0 55
+  - wait: 3s
+  - screenshot: plane
+  - command: clear @p
+  - command: give @p microblocks:microblock[custom_data={material:"minecraft:oak_planks",a:4,b:4,c:16}]
+  - wait: 2s
+  - screenshot: stick
+  - command: clear @p
+  - command: give @p microblocks:microblock[custom_data={material:"minecraft:gold_block",a:4,b:4,c:4}]
+  - wait: 2s
+  - screenshot: cube
+  - command: clear @p
+  - command: give @p microblocks:prefab[custom_data={parts:[{box:[I;0,0,0,16,4,16],material:"minecraft:stone_bricks"},{box:[I;7,4,7,9,16,9],material:"minecraft:oak_planks"},{box:[I;2,4,2,6,9,6],material:"minecraft:gold_block"}]}]
+  - wait: 2s
+  - screenshot: prefab

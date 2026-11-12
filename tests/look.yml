@@ -1,0 +1,25 @@
+# What a tool would take and what the glue would join, as they are shown; a grass block as a microblock in the hand.
+name: microblocks look
+world: true
+steps:
+  - wait: title
+  - open-world: TestWorld
+  - wait: world
+  - peaceful-world: yes
+  - command: gamemode creative @p
+  - command: time set day
+  - command: weather clear
+  - command: tp @p ~ -60 ~ 0 25
+  - wait: 3s
+  - command: setblock ~ ~ ~2 stone
+  - command: setblock ~1 ~ ~2 grass_block
+  - command: item replace entity @p weapon.mainhand with microblocks:drill_wide
+  - wait: 3s
+  - screenshot: tool
+  - command: item replace entity @p weapon.mainhand with slime_ball
+  - wait: 3s
+  - screenshot: slime
+  - micro-tools: grass
+  - micro-hold: yes
+  - wait: 3s
+  - screenshot: held

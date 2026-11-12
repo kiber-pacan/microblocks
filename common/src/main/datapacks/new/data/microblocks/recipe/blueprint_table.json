@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "building",
+  "ingredients": [
+    "minecraft:crafting_table",
+    "minecraft:paper",
+    "minecraft:lapis_lazuli"
+  ],
+  "result": {
+    "id": "microblocks:blueprint_table",
+    "count": 1
+  }
+}

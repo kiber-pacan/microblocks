@@ -1,0 +1,28 @@
+# The two tables in the world, the carved blocks with the faint outline of their cells, the screens of the tables and the wheel.
+name: microblocks ui2
+world: true
+steps:
+  - wait: title
+  - open-world: TestWorld
+  - wait: world
+  - peaceful-world: yes
+  - command: gamemode creative @p
+  - command: time set day
+  - command: weather clear
+  - command: tp @p ~ -60 ~ 0 25
+  - wait: 4s
+  - micro-tools: yes
+  - command: setblock ~-1 ~1 ~4 microblocks:table
+  - command: setblock ~1 ~1 ~4 microblocks:blueprint_table
+  - wait: 3s
+  - screenshot: tables
+  - micro-screen: cut
+  - wait: 2s
+  - screenshot: cut
+  - micro-screen: prefab
+  - wait: 2s
+  - screenshot: prefab
+  - micro-screen: wheel
+  - wait: 2s
+  - screenshot: wheel2
+  - micro-screen: none

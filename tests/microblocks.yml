@@ -1,0 +1,46 @@
+# Ready-made buildings of microblocks (a cottage, a tower, a staircase, a pergola, a row of materials, every shape) are put into the flat test world,
+# the rules of the parts are checked (no overlap, one part removed at a time) and every building is photographed from its own camera.
+name: microblocks buildings
+world: true
+steps:
+  - wait: title
+  - open-world: TestWorld
+  - wait: world
+  - peaceful-world: yes
+  - command: gamemode spectator @p
+  - command: time set day
+  - command: weather clear
+  - command: tp @p ~ -60 ~
+  - wait: 1s
+  - micro-place: yes
+  - micro-table: yes
+  - micro-demo: all
+  - wait: 2s
+  - micro-view: shapes
+  - wait: 8s
+  - screenshot: shapes
+  - micro-view: cottage
+  - wait: 3s
+  - screenshot: cottage
+  - micro-view: tower
+  - wait: 3s
+  - screenshot: tower
+  - micro-view: stairs
+  - wait: 3s
+  - screenshot: stairs
+  - micro-view: pergola
+  - wait: 3s
+  - screenshot: pergola
+  - micro-view: palette
+  - wait: 3s
+  - screenshot: palette
+  - micro-view: furniture
+  - wait: 3s
+  - screenshot: furniture
+  - micro-screen: cut
+  - wait: 2s
+  - screenshot: table-cut
+  - micro-screen: prefab
+  - wait: 2s
+  - screenshot: table-prefab
+  - micro-screen: none

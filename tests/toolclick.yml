@@ -1,0 +1,23 @@
+# A chisel used with the click of the client: the block of stone becomes microblocks with a hole.
+name: microblocks tool click
+world: true
+steps:
+  - wait: title
+  - open-world: TestWorld
+  - wait: world
+  - peaceful-world: yes
+  - command: gamemode survival @p
+  - command: time set day
+  - command: weather clear
+  - command: tp @p ~ -60 ~ 0 40
+  - wait: 4s
+  - micro-toolsetup: yes
+  - wait: 2s
+  - screenshot: before
+  - micro-toolclick: yes
+  - wait: 2s
+  - screenshot: after
+  - micro-toolcheck: yes
+  - micro-rebuild: yes
+  - wait: 3s
+  - screenshot: later

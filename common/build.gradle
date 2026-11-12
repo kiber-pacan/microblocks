@@ -1,0 +1,31 @@
+// VARIABLES
+int version_index = Integer.valueOf(providers.gradleProperty("version_index").get())
+
+
+architectury {
+    common rootProject.platforms.split(",")
+}
+
+// the recipes and the loot tables: the folders and the format of a recipe differ (recipes/ and {"item"} up to 1.20.4, recipe/ from 1.21, plain names from 1.21.3)
+sourceSets.main.resources.srcDir "src/main/datapacks/${version_index < 7 ? 'old' : version_index < 9 ? 'mid' : 'new'}"
+
+repositories {
+    maven {
+        url = "https://api.modrinth.com/maven"
+    }
+}
+
+dependencies {
+    def impl_type = (version_index < 18) ? "modImplementation" : "implementation"
+
+    add impl_type, "net.fabricmc:fabric-loader:$rootProject.fabric_loader_version"
+    add impl_type, "maven.modrinth:architectury-api:$rootProject.architectury_api_version_fabric"
+
+
+    // Aki Lib: the classes of its API (any loader's jar has them)
+    def akilib = ["fabric", "neoforge", "forge"].collect { file("${rootProject.projectDir}/libs/akilib/akilib-mc${rootProject.minecraft_version}-${it}-${rootProject.akilib_version}.jar") }.find { it.exists() }
+    if (akilib != null) add((version_index < 18) ? "modCompileOnly" : "compileOnly", files(akilib))
+
+    implementation "com.electronwill.night-config:core:3.6.6"
+    implementation "com.electronwill.night-config:toml:3.6.6"
+}

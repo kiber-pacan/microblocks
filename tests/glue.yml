@@ -1,0 +1,17 @@
+# The glue: two blocks joined into one prefab, taken as a prefab, put down again.
+name: microblocks glue
+world: true
+steps:
+  - wait: title
+  - open-world: TestWorld
+  - wait: world
+  - peaceful-world: yes
+  - command: gamemode creative @p
+  - command: time set day
+  - command: weather clear
+  - command: tp @p ~ -60 ~ 0 25
+  - wait: 4s
+  - micro-glue: yes
+  - wait: 3s
+  - micro-glue-check: yes
+  - screenshot: glue

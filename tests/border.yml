@@ -1,0 +1,16 @@
+# Tools on the border between two blocks of microblocks: no faces inside.
+name: microblocks border
+world: true
+steps:
+  - wait: title
+  - open-world: TestWorld
+  - wait: world
+  - peaceful-world: yes
+  - command: gamemode creative @p
+  - command: time set day
+  - command: weather clear
+  - command: tp @p ~ -60 ~ 0 25
+  - wait: 4s
+  - micro-border: yes
+  - wait: 3s
+  - screenshot: border

@@ -1,0 +1,320 @@
+import net.darkhax.curseforgegradle.TaskPublishCurseForge
+
+plugins {
+    id "dev.architectury.loom" version "HI BABY" apply false
+    id "architectury-plugin" version "3.5-SNAPSHOT"
+    id "com.gradleup.shadow" version "8.3.6" apply false
+
+    id "systems.manifold.manifold-gradle-plugin" version "0.0.2-alpha"
+
+    id "com.modrinth.minotaur" version "2.+" apply false
+    id "net.darkhax.curseforgegradle" version "1.3.33" apply false
+}
+
+project.gradle.ext.getProperties().each { prop ->
+    if (prop.key != null && prop.value != null) {
+        rootProject.ext.set(prop.key, prop.value)
+    }
+}
+
+int version_index = Integer.parseInt(version_index)
+
+architectury {
+    minecraft = project.minecraft_version
+}
+
+
+base {
+    archivesName = rootProject.archives_name
+}
+
+allprojects {
+    apply plugin: "java"
+    apply plugin: "architectury-plugin"
+    apply plugin: "maven-publish"
+
+
+    version = rootProject.mod_version
+    group = rootProject.maven_group
+
+    repositories {
+        maven { url = 'https://maven.parchmentmc.org' }
+        maven { url "https://maven.shedaniel.me/" }
+        maven { url = 'https://maven.architectury.dev/' }
+    }
+
+    def loaders = [
+            "common" : 0,
+            "fabric" : 1,
+            "neoforge" : 2,
+            "forge" : 3
+    ]
+
+    def taskNames = gradle.startParameter.taskNames
+    def loader = "common"
+
+    if (!taskNames.isEmpty()) {
+        def firstTask = taskNames[0]
+        def parts = firstTask.split(':')
+        if (parts.size() > 1) {
+            loader = parts[1]
+        }
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        // the preprocessor symbols (MC_VER, AUTOTEST ...) live in build.properties: when they change the classes must be rebuilt
+        inputs.file(rootProject.file("build.properties"))
+        options.compilerArgs += ["-ALOADER=${loaders[loader]}"]
+        if (project.hasProperty("MC_VER")) {
+            options.compilerArgs += ["-AMC_VER=${project.property("MC_VER")}"]
+        }
+    }
+
+}
+
+subprojects {
+    if (version_index < 18) {
+        apply plugin: 'dev.architectury.loom'
+    } else {
+        apply plugin: 'dev.architectury.loom-no-remap'
+    }
+
+    apply plugin: "systems.manifold.manifold-gradle-plugin"
+
+    apply plugin: "net.darkhax.curseforgegradle"
+    apply plugin: "com.modrinth.minotaur"
+
+    base {
+        archivesName = "$rootProject.archives_name-mc$project.minecraft_version-$project.name"
+    }
+
+    configurations {
+        testImplementation.extendsFrom annotationProcessor
+    }
+
+    loom {
+        if (version_index < 18) {
+            silentMojangMappingsLicense()
+        }
+    }
+
+    java {
+        withSourcesJar()
+
+        // Run/compile every minecraft version on the JDK it needs (17 / 21 / 25), not on whatever
+        // JDK gradle or the IDE happens to run on. Old minecraft refuses to start on new JDKs.
+        toolchain {
+            vendor = JvmVendorSpec.ADOPTIUM
+            languageVersion = JavaLanguageVersion.of(Integer.parseInt(project.java_version))
+        }
+
+        // IntelliJ takes the bytecode level of its own compiler from these, not from the toolchain: without them it compiles
+        // for the level of the project SDK (25) and an older JRE refuses the classes (UnsupportedClassVersionError)
+        sourceCompatibility = JavaVersion.toVersion(project.java_version)
+        targetCompatibility = JavaVersion.toVersion(project.java_version)
+    }
+
+    processResources {
+        def replaceProperties = [
+                version : project.mod_version,
+                akilib_version : project.akilib_version,
+                minecraft_version : project.minecraft_version,
+                fabric_loader_version : project.fabric_loader_version,
+                java : project.java_version,
+                name : "Microblocks",
+                modid : archives_name,
+                description : "Cut blocks into slabs, panels, strips and corners and put several of them in one block space",
+                authors : "akicater",
+                license : "LGPL-2.1-or-later",
+        ]
+
+        def add_loader_dependent_property = {
+            String id -> {
+                List<String> versions = gradle.ext.get(id + "s")
+                replaceProperties.put(versions[0], versions[1])
+                replaceProperties.put(versions[2], versions[3])
+                replaceProperties.put(versions[4], versions[5])
+            }
+        }
+        def add_loader_independent_property = {
+            String id -> {
+                String version = gradle.ext.get(id)
+                replaceProperties.put(id, version)
+            }
+        }
+
+        for (String mod : gradle.ext.get("loader_dependent")) {
+            add_loader_dependent_property(mod)
+        }
+
+        for (String mod : gradle.ext.get("loader_independent")) {
+            add_loader_independent_property(mod)
+        }
+
+        // NeoForge 26.x renamed the mod icon key (logoFile is deprecated and warns on every start)
+        replaceProperties.put("neoforge_logo_key", (project.version_index as int) >= 18 ? "iconFile" : "logoFile")
+
+        // Dirty hack
+        String architectury_api_version = (project.name == "neoforge") ? project.architectury_api_version_neoforge : project.architectury_api_version_fabric
+        replaceProperties.put("architectury_api_version", architectury_api_version.substring(0, architectury_api_version.lastIndexOf("+")))
+
+        if (rootProject.hasProperty("forge_version")) {
+            replaceProperties.put("forge_loader_version", project.forge_version)
+        }
+        if (rootProject.hasProperty("neoforge_version")) {
+            replaceProperties.put("neoforge_loader_version", project.neoforge_version)
+        }
+
+        def files = ["fabric.mod.json", "META-INF/mods.toml", "META-INF/neoforge.mods.toml", "quilt.mod.json"]
+        inputs.properties replaceProperties
+
+        filesMatching(files) {
+            replaceProperties.eachWithIndex {
+                expand(replaceProperties) { replaceProperties }
+            }
+        }
+    }
+
+    dependencies {
+        annotationProcessor("systems.manifold:manifold-preprocessor:${manifold_version}")
+        testAnnotationProcessor("systems.manifold:manifold-preprocessor:${manifold_version}")
+
+        minecraft "net.minecraft:minecraft:$rootProject.minecraft_version"
+
+        if (version_index < 18) {
+            mappings loom.layered() {
+                officialMojangMappings()
+                parchment("org.parchmentmc.data:parchment-${rootProject.minecraft_version}:${rootProject.parchment_version}@zip")
+            }
+        }
+    }
+
+    def loader = project.name
+
+    def credentials = new Properties()
+    if (new File("${rootDir}/credentials.properties").exists()) {
+        credentials.load(new FileInputStream("${rootDir}/credentials.properties"))
+    }
+
+
+    if (loader != "common") {
+        afterEvaluate {
+            modrinth {
+                token = credentials.getProperty("modrinthToken")
+                projectId = "rK9pUudc"
+                versionName = archives_name + " " + mod_version
+                versionNumber = mod_version
+                versionType = "release"
+                uploadFile = (version_index < 18) ? tasks.named("remapJar") : tasks.named("shadowJar")
+                gameVersions = [rootProject.minecraft_version]
+                loaders = [loader]
+                changelog = ""
+                dependencies {
+                    if (loader.equals("fabric")) {
+                        required.project "fabric-api"
+                        required.project "architectury-api"
+                        required.project "architects-akilib"
+                    } else if (loader.equals("forge") || loader.equals("neoforge")) {
+                        required.project "architectury-api"
+                        required.project "architects-akilib"
+                    }
+                }
+                failSilently = false
+            }
+
+            tasks.register("publishCurseForge", net.darkhax.curseforgegradle.TaskPublishCurseForge) {
+                disableVersionDetection()
+
+                def token = credentials.getProperty("curseToken")
+                if (token == null || token.isEmpty()) {
+                    logger.warn("WARNING: CurseForge token is missing!")
+                }
+                apiToken = token ?: ""
+
+                def uploadFile = (Integer.valueOf(version_index) < 18) ? tasks.named("remapJar") : tasks.named("shadowJar")
+                def mainFile = upload("0" /* TODO: the CurseForge project id, the old one belonged to another mod */, uploadFile)
+
+                mainFile.displayName = archives_name + " " + mod_version
+                mainFile.releaseType = "release"
+
+                mainFile.changelog = ""
+                mainFile.changelogType = "markdown"
+
+                def targetMcVersion = rootProject.minecraft_version
+                def targetLoader = (loader == "neoforge") ? "NeoForge" : loader.capitalize()
+
+                mainFile.addGameVersion(targetMcVersion)
+                mainFile.addModLoader(targetLoader)
+
+                mainFile.addEnvironment("Client")
+
+                if (loader.equals("fabric")) {
+                    mainFile.addRequirement("fabric-api", "architectury-api")
+                } else if (loader.equals("forge") || loader.equals("neoforge")) {
+                    mainFile.addRequirement("architectury-api")
+                }
+            }
+        }
+    }
+}
+
+apply from: "idea-jre.gradle"
+
+// Test runs (-Pautotest=1) only look at the first minutes of the game: the quick JIT and one GC thread start it sooner
+subprojects {
+    tasks.withType(JavaExec).configureEach {
+        if (rootProject.hasProperty("autotest")) {
+            jvmArgs "-XX:TieredStopAtLevel=1", "-XX:+UseSerialGC", "-Xshare:auto", "-XX:-UsePerfData"
+        }
+    }
+}
+
+// autotest.py starts the game itself: this task (after it built the mod) writes the exact command of the run tasks to
+// build/run-<task>.json, so later runs of the same sources need no gradle at all
+subprojects {
+    if (name in ["fabric", "forge", "neoforge"]) {
+        afterEvaluate {
+            tasks.register("dumpRun") {
+                def runTasks = ["runClient"].collect { tasks.findByName(it) }.findAll { it != null }
+                runTasks.each { t -> dependsOn(t.taskDependencies) }
+                doLast {
+                    runTasks.each { t ->
+                        t.workingDir.mkdirs()
+                        def exe = t.javaLauncher.isPresent() ? t.javaLauncher.get().executablePath.asFile.absolutePath : (t.executable ?: "java")
+                        def jvmArgs = t.allJvmArgs.collect { it.toString() }
+                        // Forge and NeoForge start with a module path (-p) and no -cp: a second class path next to it breaks them
+                        def modular = jvmArgs.contains("-p") || jvmArgs.contains("--module-path")
+                        def command = [exe] + jvmArgs + (modular ? [] : ["-cp", t.classpath.asPath]) + [t.mainClass.get()] + t.args.collect { it.toString() }
+                        // Loom adds these two to the environment of the run just before it starts (Forge and NeoForge read where the mod is from them)
+                        def extraEnv = [:]
+                        if (modular || project.name in ["forge", "neoforge"]) {
+                            def out = sourceSets.main.output
+                            def parts = []
+                            if (out.resourcesDir != null) parts << "main%%" + out.resourcesDir.absolutePath
+                            out.classesDirs.files.each { parts << "main%%" + it.absolutePath }
+                            extraEnv = [MOD_CLASSES: parts.join(File.pathSeparator)]
+                            if (modular) extraEnv.MCP_MAPPINGS = "loom.stub"
+                        }
+                        def info = [commandLine: command, workingDir: t.workingDir.absolutePath, extraEnvironment: extraEnv]
+                        file("build/run-${t.name}.json").text = groovy.json.JsonOutput.toJson(info)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// The game started from IntelliJ (and gradle runClient): 8 GB and a collector that does not stop the game (ZGC / Shenandoah). Test runs of autotest.py (-Pautotest=1) have
+// their own flags (one small collector for several games at once), the two must not meet in one command line.
+subprojects {
+    afterEvaluate { sp ->
+        def loomExt = sp.extensions.findByName("loom")
+        if (loomExt != null && !rootProject.hasProperty("autotest")) {
+            loomExt.runs.configureEach { run ->
+                run.vmArg "-Xmx8G"
+                // Distant Horizons asks for a collector that does not stop the game: ZGC on Java 21+, Shenandoah up to Java 17
+                run.vmArg(Integer.parseInt(rootProject.java_version.toString()) >= 21 ? "-XX:+UseZGC" : "-XX:+UseShenandoahGC")
+            }
+        }
+    }
+}

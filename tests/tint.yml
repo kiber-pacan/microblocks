@@ -1,0 +1,16 @@
+# The chisels and the drills on ordinary blocks: they turn into microblocks with holes.
+name: microblocks tint
+world: true
+steps:
+  - wait: title
+  - open-world: TestWorld
+  - wait: world
+  - peaceful-world: yes
+  - command: gamemode creative @p
+  - command: time set day
+  - command: weather clear
+  - command: tp @p ~ -60 ~ 0 25
+  - wait: 4s
+  - micro-tools: grass
+  - wait: 3s
+  - screenshot: tint

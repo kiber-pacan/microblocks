@@ -1,0 +1,30 @@
+# The pictures of the description: large buildings of microblocks (see MicroShowcase), photographed from their own cameras.
+name: showcase
+world: true
+steps:
+  - wait: title
+  - open-world: TestWorld
+  - wait: world
+  - peaceful-world: yes
+  - command: gamemode spectator @p
+  - command: time set 3000
+  - command: weather clear
+  - command: tp @p ~ -60 ~
+  - wait: 1s
+  - micro-demo: manor
+  - micro-demo: bridge
+  - micro-demo: market
+  - micro-demo: castle
+  - wait: 3s
+  - micro-view: manor
+  - wait: 10s
+  - screenshot: manor
+  - micro-view: bridge
+  - wait: 4s
+  - screenshot: bridge
+  - micro-view: market
+  - wait: 4s
+  - screenshot: market
+  - micro-view: castle
+  - wait: 4s
+  - screenshot: castle
